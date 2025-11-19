@@ -1,53 +1,58 @@
 #ifndef SHARED_H
 #define SHARED_H
 
-// এই ম্যাক্রোটি strptime() ফাংশন এনাবল করার জন্য আবশ্যিক।
-// এটি অবশ্যই অন্য লাইব্রেরি ইনক্লুড করার আগে থাকতে হবে।
 #define _XOPEN_SOURCE 700 
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>      // For time_t, struct tm, localtime, strftime, strptime, mktime
-#include <stdbool.h>   // For bool type
-#include <pthread.h>   // For multithreading (reminders)
-#include <unistd.h>    // For sleep, access
-#include <dirent.h>    // For listing directory contents (notes)
-#include <sys/stat.h>  // For mkdir (notes)
-#include <errno.h>     // For errno (notes)
+#include <time.h>      
+#include <stdbool.h>   
+#include <pthread.h>   
+#include <unistd.h>    
+#include <dirent.h>    
+#include <sys/stat.h>  
+#include <errno.h>     
 
-// --- GLOBAL CONSTANTS ---
+// --- ANSI COLORS FOR UI ---
+#define AC_RESET   "\x1b[0m"
+#define AC_RED     "\x1b[31m"
+#define AC_GREEN   "\x1b[32m"
+#define AC_YELLOW  "\x1b[33m"
+#define AC_BLUE    "\x1b[34m"
+#define AC_MAGENTA "\x1b[35m"
+#define AC_CYAN    "\x1b[36m"
+#define AC_BOLD    "\x1b[1m"
+
+// --- CONSTANTS ---
 #define MAX_TASK_LENGTH 256
 #define MAX_DESCRIPTION_LENGTH 512
 #define MAX_TASKS 100
-#define TODO_FILE "tasks.dat" // File to save/load tasks
-
+#define TODO_FILE "tasks.dat" 
 #define MAX_NOTE_TITLE 100
 #define MAX_NOTE_CONTENT 1024
-#define NOTES_DIR_NAME "notes" // Directory for notes
+#define NOTES_DIR_NAME "notes"
 
-// --- GLOBAL DATA STRUCTURES ---
-
-// Structure to hold a To-Do item
+// --- STRUCTURES ---
 typedef struct {
     int id;
     char title[MAX_TASK_LENGTH];
     char description[MAX_DESCRIPTION_LENGTH];
-    time_t due_date; // Unix timestamp
+    time_t due_date; 
     bool completed;
     bool has_reminder;
     time_t reminder_time;
+    int priority; // 1=High, 2=Medium, 3=Low
 } TodoItem;
 
-// --- GLOBAL VARIABLES (EXTERN) ---
-// 'extern' মানে হলো ভেরিয়েবলগুলো এখানে ডিক্লেয়ার করা হয়েছে, 
-// কিন্তু এদের মেমোরি shared.c ফাইলে তৈরি হবে।
-
+// --- GLOBALS ---
 extern TodoItem todo_list[MAX_TASKS];
 extern int todo_count;
 extern pthread_mutex_t todo_list_mutex;
+extern char current_user_name[100];
 
-// --- HELPER FUNCTION PROTOTYPES ---
+// --- HELPERS ---
 void clear_stdin_buffer();
+void clear_screen(); // New helper to wipe screen
 
 #endif

@@ -7,7 +7,7 @@ void create_notes_directory() {
 
 void add_note() {
     create_notes_directory();
-    char title[MAX_NOTE_TITLE], filepath[256];
+    char title[MAX_NOTE_TITLE], filepath[512];
     printf("Enter note title: ");
     fgets(title, sizeof(title), stdin);
     title[strcspn(title, "\n")] = 0;

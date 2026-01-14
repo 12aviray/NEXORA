@@ -1,180 +1,230 @@
+#define _GNU_SOURCE
 #include "shared.h"
 
-void add_task();
-void view_tasks();
-void mark_task_complete();
-void delete_task();
-void save_tasks_to_file(const char* filename);
-void load_tasks_from_file(const char* filename);
 
-// Helper to print a visual progress bar
-void print_progress_bar() {
-    if (todo_count == 0) return;
-    int completed = 0;
-    for(int i=0; i<todo_count; i++) if(todo_list[i].completed) completed++;
-    
-    float percent = (float)completed / todo_count;
-    int width = 30;
-    int pos = width * percent;
-
-    printf("\n" AC_CYAN "   Progress: [" AC_GREEN);
-    for (int i = 0; i < width; ++i) {
-        if (i < pos) printf("=");
-        else if (i == pos) printf(">");
-        else printf(" ");
-    }
-    printf(AC_CYAN "] %d%% Completed" AC_RESET "\n", (int)(percent * 100));
+// make  file for multiuser
+void get_user_task_filename(char *filename) {
+    snprintf(filename, 150, "%s_tasks.dat", current_user_name);
 }
 
-void add_task() {
-    if (todo_count >= MAX_TASKS) {
-        printf(AC_RED "   Full!\n" AC_RESET);
+// --- CORE FUNCTIONS ---
+
+void print_progress_bar() {
+    pthread_mutex_lock(&todo_list_mutex);
+    
+    char bar[200];
+    
+    if (todo_count == 0) {
+        snprintf(bar, sizeof(bar), "Progress: [ No tasks to track ]");
+        print_centered(bar, AC_YELLOW);
+        pthread_mutex_unlock(&todo_list_mutex);
         return;
     }
-    pthread_mutex_lock(&todo_list_mutex);
 
-    TodoItem new_task;
-    new_task.id = (todo_count == 0) ? 1 : todo_list[todo_count - 1].id + 1;
-    new_task.completed = false;
-    new_task.has_reminder = false;
+    int completed = 0;
+    for (int i = 0; i < todo_count; i++) {
+        if (todo_list[i].completed) completed++;
+    }
 
-    printf(AC_BOLD "\n   [ ADD NEW TASK ]\n" AC_RESET);
+    float percent = (float)completed / todo_count;
+    int width = 25; 
+    int pos = width * percent;
+
     
+    char bar_content[100] = "";
+    for (int i = 0; i < width; ++i) {
+        if (i < pos) strcat(bar_content, "=");
+        else if (i == pos) strcat(bar_content, ">");
+        else strcat(bar_content, " ");
+    }
+    
+    snprintf(bar, sizeof(bar), "Progress: [%s] %d%% Completed", bar_content, (int)(percent * 100));
+    
+    print_centered(bar, AC_CYAN);
+    
+    pthread_mutex_unlock(&todo_list_mutex);
+}
+void add_task() {
+    pthread_mutex_lock(&todo_list_mutex);
+    if (todo_count >= MAX_TASKS) {
+        printf(AC_RED "   Error: Task list full!\n" AC_RESET);
+        pthread_mutex_unlock(&todo_list_mutex);
+        return;
+    }
+
+    TodoItem t;
+    t.id = (todo_count == 0) ? 1 : todo_list[todo_count - 1].id + 1;
+    pthread_mutex_unlock(&todo_list_mutex);
+
+    printf(AC_BOLD "\n   --- CREATE NEW TASK ---\n" AC_RESET);
     printf("   Title: ");
-    fgets(new_task.title, sizeof(new_task.title), stdin);
-    new_task.title[strcspn(new_task.title, "\n")] = 0;
+    fgets(t.title, MAX_TASK_LENGTH, stdin);
+    t.title[strcspn(t.title, "\n")] = 0;
 
     printf("   Description: ");
-    fgets(new_task.description, sizeof(new_task.description), stdin);
-    new_task.description[strcspn(new_task.description, "\n")] = 0;
+    fgets(t.description, MAX_DESCRIPTION_LENGTH, stdin);
+    t.description[strcspn(t.description, "\n")] = 0;
 
-    // Priority Selection
     printf("   Priority (1=High, 2=Med, 3=Low): ");
-    int p;
-    if (scanf("%d", &p) == 1) new_task.priority = p;
-    else new_task.priority = 3; // Default Low
+    if (scanf("%d", &t.priority) != 1) t.priority = 3;
     clear_stdin_buffer();
 
-    printf("   Due Date (YYYY-MM-DD HH:MM) or Enter to skip: ");
-    char date_str[50];
-    fgets(date_str, sizeof(date_str), stdin);
-    date_str[strcspn(date_str, "\n")] = 0;
+    t.due_date = 0; 
+    t.completed = false;
+    t.has_reminder = false;
 
-    if (strlen(date_str) > 0) {
-        struct tm tm_info = {0};
-        if (strptime(date_str, "%Y-%m-%d %H:%M", &tm_info) != NULL) {
-            new_task.due_date = mktime(&tm_info);
-        } else new_task.due_date = 0;
-    } else new_task.due_date = 0;
-
-    todo_list[todo_count++] = new_task;
-    printf(AC_GREEN "   Task added successfully! Press Enter..." AC_RESET);
-    getchar();
+    pthread_mutex_lock(&todo_list_mutex);
+    todo_list[todo_count++] = t;
+    save_tasks_to_file();
     pthread_mutex_unlock(&todo_list_mutex);
+
+    printf(AC_GREEN "   Task added successfully!\n" AC_RESET);
 }
 
 void view_tasks() {
     pthread_mutex_lock(&todo_list_mutex);
     clear_screen();
-    printf(AC_BOLD AC_MAGENTA "\n   === YOUR TODO LIST ===\n" AC_RESET);
+    printf(AC_BOLD AC_MAGENTA "   === %s's TASK BOARD ===\n" AC_RESET, current_user_name);
     
-    print_progress_bar();
-    printf("\n");
-
     if (todo_count == 0) {
-        printf(AC_YELLOW "   No tasks found. Go add some!\n" AC_RESET);
+        printf("\n   " AC_YELLOW "No tasks found." AC_RESET "\n");
     } else {
-        // Table Header
-        printf(AC_BOLD "   %-4s | %-20s | %-8s | %-10s | %s\n" AC_RESET, "ID", "Title", "Priority", "Status", "Due Date");
-        printf("   ----------------------------------------------------------------\n");
-        
+        printf("\n   %-4s | %-18s | %-6s | %-8s\n", "ID", "Title", "Prio", "Status");
+        printf("   ----------------------------------------------\n");
+
         for (int i = 0; i < todo_count; i++) {
-            char date_buf[20] = "--";
-            if (todo_list[i].due_date > 0) {
-                struct tm *t = localtime(&todo_list[i].due_date);
-                strftime(date_buf, 20, "%m-%d %H:%M", t);
-            }
+            char *p_color = (todo_list[i].priority == 1) ? AC_RED : (todo_list[i].priority == 2 ? AC_YELLOW : AC_BLUE);
+            char *s_color = todo_list[i].completed ? AC_GREEN : AC_RESET;
+            char *status = todo_list[i].completed ? "[DONE]" : "[PEND]";
 
-            char *prio_str;
-            char *prio_color;
-            if (todo_list[i].priority == 1) { prio_str = "HIGH"; prio_color = AC_RED; }
-            else if (todo_list[i].priority == 2) { prio_str = "MED"; prio_color = AC_YELLOW; }
-            else { prio_str = "LOW"; prio_color = AC_BLUE; }
-
-            char *status = todo_list[i].completed ? "[DONE]" : "[ ]";
-            char *status_color = todo_list[i].completed ? AC_GREEN : AC_RESET;
-
-            printf("   %-4d | %-20s | %s%-8s" AC_RESET " | %s%-10s" AC_RESET " | %s\n", 
-                   todo_list[i].id, 
-                   todo_list[i].title, 
-                   prio_color, prio_str, 
-                   status_color, status,
-                   date_buf);
+            printf("   %-4d | %-18.18s | %sP-%d" AC_RESET "    | %s%-8s" AC_RESET "\n",
+                   todo_list[i].id, todo_list[i].title, p_color, todo_list[i].priority, s_color, status);
         }
     }
+    pthread_mutex_unlock(&todo_list_mutex);
     printf("\n   Press Enter to return...");
     getchar();
-    pthread_mutex_unlock(&todo_list_mutex);
 }
 
 void mark_task_complete() {
     int id;
-    printf("   Enter ID to complete: ");
-    if (scanf("%d", &id) == 1) {
-        clear_stdin_buffer();
-        pthread_mutex_lock(&todo_list_mutex);
-        for (int i = 0; i < todo_count; i++) {
-            if (todo_list[i].id == id) {
-                todo_list[i].completed = true;
-                printf(AC_GREEN "   Task '%s' Marked Completed!\n" AC_RESET, todo_list[i].title);
-                break;
-            }
+    printf("\n   Enter Task ID to complete: ");
+    if (scanf("%d", &id) != 1) { clear_stdin_buffer(); return; }
+    clear_stdin_buffer();
+
+    pthread_mutex_lock(&todo_list_mutex);
+    bool found = false;
+    for (int i = 0; i < todo_count; i++) {
+        if (todo_list[i].id == id) {
+            todo_list[i].completed = true;
+            found = true;
+            save_tasks_to_file();
+            printf(AC_GREEN "   Task %d completed!\n" AC_RESET, id);
+            break;
         }
-        pthread_mutex_unlock(&todo_list_mutex);
-    } else clear_stdin_buffer();
-    printf("   Press Enter..."); getchar();
+    }
+    pthread_mutex_unlock(&todo_list_mutex);
+    if (!found) printf(AC_RED "   Task ID not found.\n" AC_RESET);
+    SLEEP_SEC(1);
 }
 
 void delete_task() {
     int id;
-    printf(AC_RED "   Enter ID to DELETE: " AC_RESET);
-    if (scanf("%d", &id) == 1) {
-        clear_stdin_buffer();
-        pthread_mutex_lock(&todo_list_mutex);
-        int found = 0;
-        for (int i = 0; i < todo_count; i++) {
-            if (todo_list[i].id == id) {
-                for (int j = i; j < todo_count - 1; j++) todo_list[j] = todo_list[j + 1];
-                todo_count--;
-                found = 1;
-                break;
-            }
+    printf("\n   Enter Task ID to DELETE: ");
+    if (scanf("%d", &id) != 1) { clear_stdin_buffer(); return; }
+    clear_stdin_buffer();
+
+    pthread_mutex_lock(&todo_list_mutex);
+    int found_idx = -1;
+    for (int i = 0; i < todo_count; i++) {
+        if (todo_list[i].id == id) {
+            found_idx = i;
+            break;
         }
-        if(found) printf(AC_RED "   Task Deleted.\n" AC_RESET);
-        else printf("   Not Found.\n");
-        pthread_mutex_unlock(&todo_list_mutex);
-    } else clear_stdin_buffer();
-    printf("   Press Enter..."); getchar();
+    }
+
+    if (found_idx != -1) {
+        for (int i = found_idx; i < todo_count - 1; i++) {
+            todo_list[i] = todo_list[i + 1];
+        }
+        todo_count--;
+        save_tasks_to_file();
+        printf(AC_RED "   Task deleted.\n" AC_RESET);
+    } else {
+        printf("   Task not found.\n");
+    }
+    pthread_mutex_unlock(&todo_list_mutex);
+    SLEEP_SEC(1);
 }
 
-void save_tasks_to_file(const char* filename) {
+// Case-insensitive Substring Search 
+void fuzzy_search_tasks() {
+    char query[100];
+    printf("\n   " AC_CYAN "Enter task name (approximate): " AC_RESET);
+    fgets(query, 100, stdin);
+    query[strcspn(query, "\n")] = 0;
+
+    char low_query[100];
+    for(int i = 0; query[i]; i++) low_query[i] = tolower((unsigned char)query[i]);
+    low_query[strlen(query)] = '\0';
+
     pthread_mutex_lock(&todo_list_mutex);
+    printf("\n   --- SEARCH RESULTS ---\n");
+    bool found = false;
+    
+    for (int i = 0; i < todo_count; i++) {
+        
+        char low_title[MAX_TASK_LENGTH];
+        for(int j = 0; todo_list[i].title[j]; j++) 
+            low_title[j] = tolower((unsigned char)todo_list[i].title[j]);
+        low_title[strlen(todo_list[i].title)] = '\0';
+
+        int dist = levenshtein(query, todo_list[i].title);
+        bool is_substring = (strstr(low_title, low_query) != NULL);
+
+        if (dist <= 2 || is_substring) {
+            printf("   [Match] ID: %d | Title: %s | Status: %s\n", 
+                   todo_list[i].id, todo_list[i].title, 
+                   todo_list[i].completed ? "Done" : "Pending");
+            found = true;
+        }
+    }
+    pthread_mutex_unlock(&todo_list_mutex);
+    
+    if (!found) printf("   No similar tasks found.\n");
+    printf("\n   Press Enter...");
+    getchar();
+}
+
+// --- FILE I/O ---
+
+void save_tasks_to_file() {
+    char filename[150];
+    get_user_task_filename(filename);
     FILE *fp = fopen(filename, "wb");
     if (fp) {
         fwrite(&todo_count, sizeof(int), 1, fp);
-        fwrite(todo_list, sizeof(TodoItem), todo_count, fp);
+        if (todo_count > 0) {
+            fwrite(todo_list, sizeof(TodoItem), todo_count, fp);
+        }
         fclose(fp);
     }
-    pthread_mutex_unlock(&todo_list_mutex);
 }
 
-void load_tasks_from_file(const char* filename) {
-    pthread_mutex_lock(&todo_list_mutex);
+void load_tasks_from_file() {
+    char filename[150];
+    get_user_task_filename(filename);
     FILE *fp = fopen(filename, "rb");
+    
+    pthread_mutex_lock(&todo_list_mutex);
     if (fp) {
-        fread(&todo_count, sizeof(int), 1, fp);
-        fread(todo_list, sizeof(TodoItem), todo_count, fp);
+        if (fread(&todo_count, sizeof(int), 1, fp) != 1) todo_count = 0;
+        if (todo_count > 0) {
+            fread(todo_list, sizeof(TodoItem), todo_count, fp);
+        }
         fclose(fp);
+    } else {
+        todo_count = 0; 
     }
     pthread_mutex_unlock(&todo_list_mutex);
 }

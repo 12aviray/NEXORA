@@ -1,55 +1,92 @@
-# NEXORA
 NEXORA is a high-performance, terminal-based productivity suite written in C.
-It combines Task Management, Note-taking, and an Automated Reminder system into one lightweight application.
-It features multi-user support, smart search algorithms, and background processing.
-<br>
+It combines Task Management, Note-Taking, and an Automated Reminder System into a single lightweight application.
 
-## Key Features <br>
-       1.Multi-User System: Secure login/registration with independent data isolation for every user.
-       <br>
-       2.Task Board: Create, delete, and track tasks with real-time Progress Bars.
-       <br>
-       3.Smart Notes: A folder-based note system that saves your thoughts into organized .txt files.
-       <br>
-       4.Smart Search: Uses the Levenshtein Distance Algorithm to find tasks/notes even if you make a typo
-       .<br>
-       5.Background Alarms: Set reminders or alarms using Multithreading. The program alerts you while you continue working.
-       <br><br>         
+Designed for speed and efficiency, NEXORA supports multi-user environments, smart fuzzy search, and background processing—all while remaining fully terminal-driven.
 
-## System Integration: <br>
-       Linux: Native notify-send pop-ups and espeak-ng voice alerts.
-       
-          <br><br>
-## Technical Highlights <br>
-       Multithreading (Pthreads): Used to handle background alarms without freezing the main UI.
-       <br>
-       Dynamic File Naming: Automatically generates user-specific binary data and directory structures at runtime.
-       <br>
-       Fuzzy Logic: Implements string matching algorithms for an "approximate" search experience.
-       <br>
-       Thread Safety: Implements Mutex Locks to prevent data corruption during concurrent operations
-       <br>
-           <br>
-## Project Structure <br>
-        ├── main.c           # Dashboard and Main Menu Logic<br>
-        ├── auth.c           # User Authentication (Login/Register)<br>
-        ├── tasks.c          # Task Management & Progress Tracking<br>
-        ├── notes.c          # Note-taking System & File I/O<br>
-        ├── reminders.c      # Multithreaded Alarms & Notifications<br>
-        ├── shared.c         # UI Helpers and String Algorithms<br>
-        ├── shared.h         # Global Structures and Prototypes<br>
-        └── README.md        # Project Documentation<br>
-<br>
+✨ Key Features
+🔐 Multi-User System
 
-## How to Use <br>
-      1. Register: Create a new account on your first run.
-      <br>
-      2.Dashboard: View your progress bar and navigate through tasks or notes.
-      <br>
-      3.Smart Search: Use option [6] or [12] to search using approximate names.
-      <br>
-      4.Set Alarm: Enter a task ID and time (e.g., 05:30 PM). A background thread will trigger a notification and speak to you when the time comes!
-     <br><br>
+Secure user registration and login
 
-### Author: Avishek Ray
+Complete data isolation for each user
 
+✅ Task Board
+
+Create, delete, and track tasks
+
+Real-time progress bars for productivity tracking
+
+
+📝 Smart Notes
+
+Folder-based note management
+
+Notes saved as organized .txt files
+
+
+🔍 Smart Search
+
+Uses the Levenshtein Distance Algorithm
+
+Finds tasks or notes even with typos or partial matches
+
+⏰ Background Alarms
+
+Set reminders and alarms
+
+Runs using multithreading, allowing uninterrupted workflow
+
+Alerts trigger notifications and voice output
+
+
+🧩 System Integration
+
+Linux Notifications: notify-send
+Voice Alerts: espeak-ng
+
+
+🛠 Technical Highlights
+
+Multithreading (Pthreads)
+Handles background alarms without blocking the main UI
+
+Thread Safety
+Mutex locks prevent race conditions and data corruption
+
+Dynamic File Naming
+Automatically generates user-specific directories and binary data files
+
+Fuzzy Logic Search
+Approximate string matching for a smarter search experience
+
+📁 Project Structure
+├── main.c        # Dashboard and main menu logic
+├── auth.c        # User authentication (login & registration)
+├── tasks.c       # Task management & progress tracking
+├── notes.c       # Note-taking system & file I/O
+├── reminders.c   # Multithreaded alarms & notifications
+├── shared.c      # UI helpers & string algorithms
+├── shared.h      # Global structures & function prototypes
+└── README.md     # Project documentation
+
+
+▶️ How to Use
+
+Register
+Create a new account on the first run.
+
+Dashboard
+View your task progress and navigate between features.
+
+Smart Search
+Use option [6] or [12] to perform approximate searches.
+
+Set an Alarm
+Enter a task ID and time (e.g., 05:30 PM).
+A background thread will notify you and speak when the time arrives.
+
+
+👤 Author
+
+Avishek Ray
+Github:https://github.com/12aviray
